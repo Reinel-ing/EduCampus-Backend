@@ -13,6 +13,7 @@ from datetime import date
 from dotenv import load_dotenv
 import os
 from service.email_service import email_service
+from service.notificacion_service import crear_notificacion, notificar_admins
 
 load_dotenv()
 
@@ -69,6 +70,15 @@ async def subir_material(
         for inscripcion in inscripciones:
             estudiante = db.query(Estudiante).filter(Estudiante.id_estudiante == inscripcion.id_estudiante).first()
             if estudiante:
+                # Notificacion en BD
+                crear_notificacion(
+                    db,
+                    titulo=f"Nuevo material en {curso.nombre}",
+                    mensaje=f"El docente {docente_nombre} subio el archivo '{nombre_archivo}' en el curso '{curso.nombre}'.",
+                    tipo="material",
+                    id_destinatario=estudiante.id_estudiante,
+                    tipo_destinatario="estudiante",
+                )
                 try:
                     email_service.notify_material_uploaded(
                         to_email=estudiante.correo,
@@ -79,7 +89,15 @@ async def subir_material(
                     )
                 except Exception as e:
                     print(f"Error al enviar email a {estudiante.correo}: {e}")
-    
+        # Notificacion para los admins
+        notificar_admins(
+            db,
+            titulo="Material didactico subido",
+            mensaje=f"El docente {docente_nombre} subio el archivo '{nombre_archivo}' en el curso '{curso.nombre}'.",
+            tipo="sistema",
+        )
+        db.commit()
+
     return nuevo_material
 
 @router.get("/por-curso/{curso_id}", response_model=list[MaterialResponse])

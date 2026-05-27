@@ -5,8 +5,8 @@ BASE_URL = "http://127.0.0.1:8000"
 
 def seed_configuracion():
     data = {
-        "nombre_institucion": "Instituto Tecnológico Vortal",
-        "email_contacto": "contacto@vortal.edu",
+        "nombre_institucion": "EduCampus",
+        "email_contacto": "contacto@educampus.edu.co",
         "ano_academico": "2025"
     }
     response = requests.post(f"{BASE_URL}/configuracion/", json=data)
@@ -15,9 +15,9 @@ def seed_configuracion():
 def seed_docentes():
     # Las contraseñas se hashearán automáticamente en el backend
     docentes = [
-        {"nombres": "Carlos", "apellidos": "Pérez", "cedula": "1234567890", "correo": "carlos.perez@vortal.edu", "contraseña": "docente123", "especialidad": "Matemáticas", "estado": True},
-        {"nombres": "María", "apellidos": "González", "cedula": "0987654321", "correo": "maria.gonzalez@vortal.edu", "contraseña": "docente123", "especialidad": "Física", "estado": True},
-        {"nombres": "Juan", "apellidos": "Rodríguez", "cedula": "1122334455", "correo": "juan.rodriguez@vortal.edu", "contraseña": "docente123", "especialidad": "Programación", "estado": True}
+        {"nombres": "Carlos", "apellidos": "Pérez", "cedula": "1234567890", "correo": "carlos.perez@outlook.com", "contraseña": "docente123", "especialidad": "Matemáticas", "estado": True},
+        {"nombres": "María", "apellidos": "González", "cedula": "0987654321", "correo": "maria.gonzalez@outlook.com", "contraseña": "docente123", "especialidad": "Física", "estado": True},
+        {"nombres": "Juan", "apellidos": "Rodríguez", "cedula": "1122334455", "correo": "juan.rodriguez@outlook.com", "contraseña": "docente123", "especialidad": "Programación", "estado": True}
     ]
     ids = []
     for docente in docentes:
@@ -30,11 +30,11 @@ def seed_docentes():
 def seed_estudiantes():
     # Las contraseñas se hashearán automáticamente en el backend
     estudiantes = [
-        {"nombres": "Ana", "apellidos": "Martínez", "cedula": "2233445566", "correo": "ana.martinez@estudiante.edu", "contraseña": "estudiante123", "telefono": "0991234567", "estado": True},
-        {"nombres": "Luis", "apellidos": "Hernández", "cedula": "3344556677", "correo": "luis.hernandez@estudiante.edu", "contraseña": "estudiante123", "telefono": "0992345678", "estado": True},
-        {"nombres": "Sofía", "apellidos": "López", "cedula": "4455667788", "correo": "sofia.lopez@estudiante.edu", "contraseña": "estudiante123", "telefono": "0993456789", "estado": True},
-        {"nombres": "Pedro", "apellidos": "García", "cedula": "5566778899", "correo": "pedro.garcia@estudiante.edu", "contraseña": "estudiante123", "telefono": "0994567890", "estado": True},
-        {"nombres": "Laura", "apellidos": "Díaz", "cedula": "6677889900", "correo": "laura.diaz@estudiante.edu", "contraseña": "estudiante123", "telefono": "0995678901", "estado": True}
+        {"nombres": "Ana", "apellidos": "Martínez", "cedula": "2233445566", "correo": "ana.martinez@outlook.com", "contraseña": "estudiante123", "telefono": "0991234567", "estado": True},
+        {"nombres": "Luis", "apellidos": "Hernández", "cedula": "3344556677", "correo": "luis.hernandez@outlook.com", "contraseña": "estudiante123", "telefono": "0992345678", "estado": True},
+        {"nombres": "Sofía", "apellidos": "López", "cedula": "4455667788", "correo": "sofia.lopez@outlook.com", "contraseña": "estudiante123", "telefono": "0993456789", "estado": True},
+        {"nombres": "Pedro", "apellidos": "García", "cedula": "5566778899", "correo": "pedro.garcia@outlook.com", "contraseña": "estudiante123", "telefono": "0994567890", "estado": True},
+        {"nombres": "Laura", "apellidos": "Díaz", "cedula": "6677889900", "correo": "laura.diaz@outlook.com", "contraseña": "estudiante123", "telefono": "0995678901", "estado": True}
     ]
     ids = []
     for estudiante in estudiantes:

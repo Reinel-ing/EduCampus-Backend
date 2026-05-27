@@ -8,6 +8,7 @@ from schemas.estudiante import EstudianteCreate, EstudianteUpdate, EstudianteRes
 from datetime import datetime
 from utils.security import hash_password
 from service.email_service import email_service
+from service.notificacion_service import crear_notificacion, notificar_admins
 
 router = APIRouter(prefix="/estudiantes", tags=["Estudiantes"])
 
@@ -31,6 +32,24 @@ def create_estudiante(estudiante: EstudianteCreate, db: Session = Depends(get_db
     db.commit()
     db.refresh(db_estudiante)
     
+    # Notificacion para el estudiante
+    crear_notificacion(
+        db,
+        titulo="Bienvenido a EduCampus",
+        mensaje="Tu cuenta de Estudiante ha sido creada exitosamente. Ya puedes acceder al sistema.",
+        tipo="bienvenida",
+        id_destinatario=db_estudiante.id_estudiante,
+        tipo_destinatario="estudiante",
+    )
+    # Notificacion para los admins
+    notificar_admins(
+        db,
+        titulo="Nuevo estudiante registrado",
+        mensaje=f"El estudiante {db_estudiante.nombres} {db_estudiante.apellidos} ({db_estudiante.correo}) fue creado en el sistema.",
+        tipo="sistema",
+    )
+    db.commit()
+
     # Enviar email de bienvenida
     try:
         email_service.notify_user_created(
@@ -41,7 +60,7 @@ def create_estudiante(estudiante: EstudianteCreate, db: Session = Depends(get_db
         )
     except Exception as e:
         print(f"Error al enviar email: {e}")
-    
+
     return db_estudiante
 
 @router.get("/", response_model=list[EstudianteResponse])

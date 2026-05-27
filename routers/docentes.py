@@ -9,6 +9,7 @@ from models.calificacion import Calificacion
 from schemas.docente import DocenteCreate, DocenteUpdate, DocenteResponse
 from utils.security import hash_password
 from service.email_service import email_service
+from service.notificacion_service import crear_notificacion, notificar_admins
 
 router = APIRouter(prefix="/docentes", tags=["Docentes"])
 
@@ -32,6 +33,24 @@ def create_docente(docente: DocenteCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_docente)
     
+    # Notificacion para el docente
+    crear_notificacion(
+        db,
+        titulo="Bienvenido a EduCampus",
+        mensaje="Tu cuenta de Docente ha sido creada exitosamente. Ya puedes acceder al sistema.",
+        tipo="bienvenida",
+        id_destinatario=db_docente.id_docente,
+        tipo_destinatario="docente",
+    )
+    # Notificacion para los admins
+    notificar_admins(
+        db,
+        titulo="Nuevo docente registrado",
+        mensaje=f"El docente {db_docente.nombres} {db_docente.apellidos} ({db_docente.correo}) fue creado en el sistema.",
+        tipo="sistema",
+    )
+    db.commit()
+
     # Enviar email de bienvenida
     try:
         email_service.notify_user_created(
@@ -42,7 +61,7 @@ def create_docente(docente: DocenteCreate, db: Session = Depends(get_db)):
         )
     except Exception as e:
         print(f"Error al enviar email: {e}")
-    
+
     return db_docente
 
 @router.get("/", response_model=list[DocenteResponse])

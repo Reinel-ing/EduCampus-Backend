@@ -8,7 +8,7 @@ load_dotenv()
 class EmailService:
     def __init__(self):
         self.api_key = os.getenv("MAILERSEND_API_KEY")
-        self.from_email = os.getenv("EMAIL_FROM", "noreply@vortal.edu")
+        self.from_email = os.getenv("EMAIL_FROM", "noreply@educampus.edu.co")
         self.client = MailerSendClient(self.api_key)
 
     def send_email(self, to_email: str, subject: str, html_content: str, text_content: Optional[str] = None):
@@ -17,7 +17,7 @@ class EmailService:
         """
         try:
             email = (EmailBuilder()
-                .from_email(self.from_email, "Sistema Vortal")
+                .from_email(self.from_email, "EduCampus")
                 .to_many([{"email": to_email, "name": to_email.split("@")[0]}])
                 .subject(subject)
                 .html(html_content)
@@ -35,12 +35,12 @@ class EmailService:
     
     def notify_user_created(self, to_email: str, nombre: str, rol: str, password: str):
         """Notifica a un usuario que su cuenta ha sido creada."""
-        subject = "Bienvenido al Sistema Vortal"
+        subject = "Bienvenido al EduCampus"
         html_content = f"""
         <html>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="background-color: #2e86de; padding: 20px; text-align: center;">
-                    <h1 style="color: white; margin: 0;">Sistema Académico Vortal</h1>
+                    <h1 style="color: white; margin: 0;">Sistema Académico EduCampus</h1>
                 </div>
                 <div style="padding: 30px; background-color: #f5f5f5;">
                     <h2 style="color: #2e86de;">¡Bienvenido, {nombre}!</h2>
@@ -55,7 +55,7 @@ class EmailService:
                 </div>
                 <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
                     <p>Este es un correo automático, por favor no responder.</p>
-                    <p>&copy; 2025 Sistema Académico Vortal</p>
+                    <p>&copy; 2025 Sistema Académico EduCampus</p>
                 </div>
             </body>
         </html>

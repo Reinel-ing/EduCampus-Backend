@@ -6,6 +6,7 @@ from models.estudiante import Estudiante
 from models.curso import Curso
 from schemas.calificacion import CalificacionCreate, CalificacionUpdate, CalificacionResponse
 from service.email_service import email_service
+from service.notificacion_service import crear_notificacion, notificar_admins
 
 router = APIRouter(prefix="/calificaciones", tags=["Calificaciones"])
 
@@ -31,6 +32,25 @@ def crear_calificacion(calificacion: CalificacionCreate, db: Session = Depends(g
     
     if estudiante and curso:
         tipo_eval = {1: "Parcial 1", 2: "Parcial 2", 3: "Final"}.get(calificacion.tipo_evaluacion, "Evaluación")
+
+        # Notificacion para el estudiante
+        crear_notificacion(
+            db,
+            titulo=f"Nueva calificacion - {curso.nombre}",
+            mensaje=f"Se registro tu nota de {tipo_eval}: {calificacion.nota}/5.0 en el curso {curso.nombre}.",
+            tipo="calificacion",
+            id_destinatario=estudiante.id_estudiante,
+            tipo_destinatario="estudiante",
+        )
+        # Notificacion para los admins
+        notificar_admins(
+            db,
+            titulo="Calificacion registrada",
+            mensaje=f"Se registro {tipo_eval} ({calificacion.nota}/5.0) para {estudiante.nombres} {estudiante.apellidos} en el curso '{curso.nombre}'.",
+            tipo="sistema",
+        )
+        db.commit()
+
         try:
             email_service.notify_grade_registered(
                 to_email=estudiante.correo,
@@ -41,7 +61,7 @@ def crear_calificacion(calificacion: CalificacionCreate, db: Session = Depends(g
             )
         except Exception as e:
             print(f"Error al enviar email: {e}")
-    
+
     return db_calificacion
 
 @router.put("/{calificacion_id}", response_model=CalificacionResponse)

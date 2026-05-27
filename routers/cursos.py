@@ -127,21 +127,57 @@ def cursos_por_estudiante(estudiante_id: int, db: Session = Depends(get_db)):
 def obtener_horario_estudiante(estudiante_id: int, db: Session = Depends(get_db)):
     inscripciones = db.query(EstudianteCurso).filter(EstudianteCurso.id_estudiante == estudiante_id).all()
     curso_ids = [i.id_curso for i in inscripciones]
-    
+
     if not curso_ids:
         return []
-    
+
     cursos = db.query(Curso).filter(Curso.id_curso.in_(curso_ids), Curso.estado == True).all()
-    
+
     horarios = []
     for curso in cursos:
         if curso.horario:
-            for horario in curso.horario:
+            for h in curso.horario:
+                if isinstance(h, dict):
+                    dia  = h.get("dia", "")
+                    hora = h.get("hora", "")
+                elif isinstance(h, str):
+                    partes = h.split(" ", 1)
+                    dia  = partes[0] if len(partes) > 0 else ""
+                    hora = partes[1] if len(partes) > 1 else ""
+                else:
+                    continue
                 horarios.append({
                     "id_curso": curso.id_curso,
                     "nombre_curso": curso.nombre,
-                    "dia": horario.get("dia"),
-                    "hora": horario.get("hora")
+                    "dia": dia,
+                    "hora": hora,
                 })
-    
+
+    return horarios
+
+
+@router.get("/horario-docente/{docente_id}", response_model=list[dict])
+def obtener_horario_docente(docente_id: int, db: Session = Depends(get_db)):
+    cursos = db.query(Curso).filter(Curso.id_docente == docente_id, Curso.estado == True).all()
+
+    horarios = []
+    for curso in cursos:
+        if curso.horario:
+            for h in curso.horario:
+                if isinstance(h, dict):
+                    dia  = h.get("dia", "")
+                    hora = h.get("hora", "")
+                elif isinstance(h, str):
+                    partes = h.split(" ", 1)
+                    dia  = partes[0] if len(partes) > 0 else ""
+                    hora = partes[1] if len(partes) > 1 else ""
+                else:
+                    continue
+                horarios.append({
+                    "id_curso": curso.id_curso,
+                    "nombre_curso": curso.nombre,
+                    "dia": dia,
+                    "hora": hora,
+                })
+
     return horarios

@@ -5,7 +5,7 @@ BASE_URL = "http://127.0.0.1:8000"
 def seed_administrador():
     admin = {
         "nombre": "admin",
-        "correo": "admin@vortal.edu.co",
+        "correo": "admin@outlook.com",
         "contraseña": "123456789"  # Se hasheará automáticamente en el backend
     }
     

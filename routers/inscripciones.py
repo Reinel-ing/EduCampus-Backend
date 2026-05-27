@@ -7,6 +7,7 @@ from models.estudiante import Estudiante
 from models.docente import Docente
 from schemas.inscripcion import InscripcionCreate, InscripcionResponse
 from service.email_service import email_service
+from service.notificacion_service import crear_notificacion, notificar_admins
 
 router = APIRouter(prefix="/inscripciones", tags=["Inscripciones"])
 
@@ -46,18 +47,12 @@ def inscribir_estudiante(inscripcion: InscripcionCreate, db: Session = Depends(g
     if "@" not in correo_lower or "." not in correo_lower:
         raise HTTPException(status_code=400, detail="El correo del estudiante no es válido")
     
-    # Dominios permitidos
-    dominios_permitidos = [
-      "@gmail.com",
-      "@outlook.com",
-      "@hotmail.com",
-      "@unicesar.edu.co"
-  ]
-
+    # Dominios permitidos: gmail, hotmail, outlook
+    dominios_permitidos = ("@gmail.com", "@hotmail.com", "@outlook.com", "@hotmail.es", "@outlook.es")
     if not any(correo_lower.endswith(d) for d in dominios_permitidos):
-       raise HTTPException(
-           status_code=400,
-           detail="Solo se permiten correos gmail, Outlook, Hotmail y Unicesar"
+        raise HTTPException(
+            status_code=400,
+            detail="Solo se permiten correos Gmail, Hotmail u Outlook"
         )
     
     # 7. Validar que el estudiante está activo
@@ -88,6 +83,33 @@ def inscribir_estudiante(inscripcion: InscripcionCreate, db: Session = Depends(g
     docente = db.query(Docente).filter(Docente.id_docente == curso.id_docente).first()
     
     if estudiante and docente:
+        # Notificacion en BD para el estudiante
+        crear_notificacion(
+            db,
+            titulo=f"Inscripcion exitosa - {curso.nombre}",
+            mensaje=f"Te has inscrito exitosamente al curso '{curso.nombre}' con el docente {docente.nombres} {docente.apellidos}.",
+            tipo="inscripcion",
+            id_destinatario=estudiante.id_estudiante,
+            tipo_destinatario="estudiante",
+        )
+        # Notificacion en BD para el docente
+        crear_notificacion(
+            db,
+            titulo=f"Nuevo estudiante en {curso.nombre}",
+            mensaje=f"{estudiante.nombres} {estudiante.apellidos} se ha inscrito en tu curso '{curso.nombre}'.",
+            tipo="inscripcion",
+            id_destinatario=docente.id_docente,
+            tipo_destinatario="docente",
+        )
+        # Notificacion para los admins
+        notificar_admins(
+            db,
+            titulo="Nueva matricula registrada",
+            mensaje=f"{estudiante.nombres} {estudiante.apellidos} se matriculo en el curso '{curso.nombre}' (docente: {docente.nombres} {docente.apellidos}).",
+            tipo="info",
+        )
+        db.commit()
+
         try:
             email_service.notify_course_enrollment(
                 to_email=estudiante.correo,
@@ -97,7 +119,7 @@ def inscribir_estudiante(inscripcion: InscripcionCreate, db: Session = Depends(g
             )
         except Exception as e:
             print(f"Error al enviar email: {e}")
-    
+
     return db_inscripcion
 
 @router.delete("/{inscripcion_id}", status_code=status.HTTP_204_NO_CONTENT)

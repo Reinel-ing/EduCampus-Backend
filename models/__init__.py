@@ -8,6 +8,8 @@ from .asistencia import Asistencia
 from .material_didactico import MaterialDidactico
 from .configuracion import Configuracion
 from .administrador import Administrador
+from .notificacion import Notificacion
+from .actividad import Actividad, EntregaActividad
 
 # Relaciones
 Docente.cursos = relationship("Curso", backref="docente", cascade="all, delete-orphan")

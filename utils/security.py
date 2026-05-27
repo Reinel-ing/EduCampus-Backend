@@ -2,35 +2,34 @@ import bcrypt
 
 def hash_password(password: str) -> str:
     """
-    Hashea una contraseña usando bcrypt.
-    
-    Args:
-        password: Contraseña en texto plano
-        
-    Returns:
-        Contraseña hasheada
-    """
-    # Convertir la contraseña a bytes
-    password_bytes = password.encode('utf-8')
-    # Generar salt y hashear
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password_bytes, salt)
-    # Retornar como string
-    return hashed.decode('utf-8')
+    Almacena la contraseña de forma segura usando bcrypt + salt aleatorio.
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+    El frontend ya envía SHA-256(contraseña_original), así que aquí
+    recibimos un hash hex de 64 chars. bcrypt lo vuelve a hashear con
+    un salt aleatorio diferente cada vez → aunque dos usuarios tengan
+    la misma contraseña, el valor almacenado en la BD es SIEMPRE distinto.
+
+    Flujo completo:
+        [Usuario escribe] → SHA-256 (frontend) → bcrypt+salt (backend) → BD
     """
-    Verifica que una contraseña coincida con su hash.
-    
-    Args:
-        plain_password: Contraseña en texto plano
-        hashed_password: Contraseña hasheada
-        
-    Returns:
-        True si coinciden, False en caso contrario
+    password_bytes = password.encode("utf-8")
+    # bcrypt.gensalt() genera un salt único cada llamada → hashes siempre distintos
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode("utf-8")
+
+
+def verify_password(input_password: str, hashed_password: str) -> bool:
     """
-    # Convertir ambas a bytes
-    password_bytes = plain_password.encode('utf-8')
-    hashed_bytes = hashed_password.encode('utf-8')
-    # Verificar
-    return bcrypt.checkpw(password_bytes, hashed_bytes)
+    Verifica que el SHA-256 enviado por el frontend coincida con el
+    hash bcrypt almacenado en la BD.
+
+    bcrypt.checkpw compara de forma segura (tiempo constante) para
+    prevenir ataques de temporización.
+    """
+    try:
+        password_bytes = input_password.encode("utf-8")
+        hashed_bytes = hashed_password.encode("utf-8")
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception:
+        return False
