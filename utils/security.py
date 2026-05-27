@@ -13,6 +13,9 @@ def hash_password(password: str) -> str:
         [Usuario escribe] → SHA-256 (frontend) → bcrypt+salt (backend) → BD
     """
     password_bytes = password.encode("utf-8")
+    # bcrypt tiene un límite de 72 bytes. El frontend envía SHA-256 (64 chars),
+    # pero truncamos por seguridad ante cualquier entrada directa.
+    password_bytes = password_bytes[:72]
     # bcrypt.gensalt() genera un salt único cada llamada → hashes siempre distintos
     salt = bcrypt.gensalt(rounds=12)
     hashed = bcrypt.hashpw(password_bytes, salt)

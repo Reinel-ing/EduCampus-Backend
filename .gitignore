@@ -4,3 +4,10 @@ __pycache__/
 .env
 .vscode/
 node_modules/
+
+# Archivos generados por pruebas
+*.db
+*.log
+backend-results.json
+backend-report.html
+.pytest_cache/
