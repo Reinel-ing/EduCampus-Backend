@@ -66,3 +66,66 @@ def estadisticas_estudiante(estudiante_id: int, db: Session = Depends(get_db)):
         "mi_promedio": promedio,
         "mi_asistencia": porcentaje_asistencia
     }
+
+@router.get("/rendimiento", response_model=dict)
+def rendimiento_academico(db: Session = Depends(get_db)):
+    from collections import defaultdict
+
+    estudiantes = db.query(Estudiante).filter(Estudiante.estado == True).all()
+    cursos_todos = db.query(Curso).filter(Curso.estado == True).all()
+
+    ranking_estudiantes = []
+    for est in estudiantes:
+        cals = db.query(Calificacion).filter(Calificacion.id_estudiante == est.id_estudiante).all()
+        if not cals:
+            continue
+        promedio = float(sum(float(c.nota) for c in cals) / len(cals))
+        asists = db.query(Asistencia).filter(Asistencia.id_estudiante == est.id_estudiante).all()
+        presentes = sum(1 for a in asists if a.estado)
+        pct_asist = round(presentes / len(asists) * 100) if asists else 0
+        mejor_cal = max(cals, key=lambda c: float(c.nota))
+        curso_obj = db.query(Curso).filter(Curso.id_curso == mejor_cal.id_curso).first()
+        mejor_curso = curso_obj.nombre if curso_obj else ""
+        nota_r = round(promedio, 1)
+        estado = "Excelente" if nota_r >= 4.5 else "Bueno" if nota_r >= 3.5 else "Regular" if nota_r >= 3.0 else "Bajo"
+        ranking_estudiantes.append({
+            "nombre": f"{est.nombres} {est.apellidos}",
+            "curso": mejor_curso,
+            "nota": nota_r,
+            "asistencia": pct_asist,
+            "pct": pct_asist,
+            "estado": estado,
+        })
+    ranking_estudiantes.sort(key=lambda x: x["nota"], reverse=True)
+
+    ranking_cursos = []
+    for curso in cursos_todos:
+        cals = db.query(Calificacion).filter(Calificacion.id_curso == curso.id_curso).all()
+        if not cals:
+            continue
+        promedio = float(sum(float(c.nota) for c in cals) / len(cals))
+        alumnos = db.query(EstudianteCurso).filter(EstudianteCurso.id_curso == curso.id_curso).count()
+        by_student = defaultdict(list)
+        for c in cals:
+            by_student[c.id_estudiante].append(float(c.nota))
+        mejor_id = max(by_student, key=lambda sid: sum(by_student[sid]) / len(by_student[sid]))
+        mejor_est = db.query(Estudiante).filter(Estudiante.id_estudiante == mejor_id).first()
+        mejor_nombre = f"{mejor_est.nombres} {mejor_est.apellidos}" if mejor_est else ""
+        docente = db.query(Docente).filter(Docente.id_docente == curso.id_docente).first()
+        docente_nombre = f"{docente.nombres} {docente.apellidos}" if docente else ""
+        ranking_cursos.append({
+            "nombre": curso.nombre,
+            "docente": docente_nombre,
+            "promedio": round(promedio, 1),
+            "alumnos": alumnos,
+            "top": mejor_nombre,
+        })
+    ranking_cursos.sort(key=lambda x: x["promedio"], reverse=True)
+
+    promedio_general = round(sum(e["nota"] for e in ranking_estudiantes) / len(ranking_estudiantes), 1) if ranking_estudiantes else 0
+
+    return {
+        "promedio_general": promedio_general,
+        "estudiantes": ranking_estudiantes,
+        "cursos": ranking_cursos,
+    }
