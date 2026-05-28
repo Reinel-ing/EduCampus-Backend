@@ -1,38 +1,52 @@
-from mailersend import Email, MailerSendClient, EmailBuilder
+"""
+email_service.py
+Servicio de notificaciones por correo usando Gmail SMTP.
+Envía emails HTML a los usuarios cuando ocurren eventos
+importantes en el sistema EduCampus.
+"""
+
 import os
-from dotenv import load_dotenv
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Optional
+from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class EmailService:
     def __init__(self):
-        self.api_key = os.getenv("MAILERSEND_API_KEY")
-        self.from_email = os.getenv("EMAIL_FROM", "noreply@educampus.edu.co")
-        self.client = MailerSendClient(self.api_key)
+        self.gmail_user = os.getenv("GMAIL_USER")
+        self.gmail_password = os.getenv("GMAIL_APP_PASSWORD")
+        self.from_email = os.getenv("EMAIL_FROM", self.gmail_user)
 
     def send_email(self, to_email: str, subject: str, html_content: str, text_content: Optional[str] = None):
-        """
-        Envía un email usando MailerSend.
-        """
+        """Envía un email usando Gmail SMTP con TLS."""
         try:
-            email = (EmailBuilder()
-                .from_email(self.from_email, "EduCampus")
-                .to_many([{"email": to_email, "name": to_email.split("@")[0]}])
-                .subject(subject)
-                .html(html_content)
-                .text(text_content or "")
-                .build()
-            )
-            response = self.client.emails.send(email)
-            print(f"Email sent: {getattr(response, 'message_id', response)}")
-            return response
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = f"EduCampus <{self.from_email}>"
+            msg["To"] = to_email
+
+            if text_content:
+                msg.attach(MIMEText(text_content, "plain", "utf-8"))
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.ehlo()
+                server.starttls()
+                server.login(self.gmail_user, self.gmail_password)
+                server.sendmail(self.from_email, to_email, msg.as_string())
+
+            print(f"[Email] Enviado a {to_email} — {subject}")
+            return True
         except Exception as e:
-            print(f"Error al enviar email: {str(e)}")
+            print(f"[Email] Error al enviar a {to_email}: {e}")
             return None
-    
-    # Templates de notificaciones
-    
+
+    # ─── Templates de notificaciones ─────────────────────────────────────────
+
     def notify_user_created(self, to_email: str, nombre: str, rol: str, password: str):
         """Notifica a un usuario que su cuenta ha sido creada."""
         subject = "Bienvenido al EduCampus"
@@ -50,8 +64,6 @@ class EmailService:
                         <p><strong>Contraseña temporal:</strong> {password}</p>
                     </div>
                     <p style="color: #e74c3c;"><strong>⚠️ Importante:</strong> Por seguridad, te recomendamos cambiar tu contraseña al iniciar sesión por primera vez.</p>
-                    <p>Puedes acceder al sistema en el siguiente enlace:</p>
-                    <a href="http://localhost:8000/docs" style="display: inline-block; padding: 12px 24px; background-color: #2e86de; color: white; text-decoration: none; border-radius: 5px; margin: 10px 0;">Acceder al Sistema</a>
                 </div>
                 <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
                     <p>Este es un correo automático, por favor no responder.</p>
@@ -61,7 +73,7 @@ class EmailService:
         </html>
         """
         return self.send_email(to_email, subject, html_content)
-    
+
     def notify_grade_registered(self, to_email: str, nombre_estudiante: str, curso: str, tipo_evaluacion: str, nota: float):
         """Notifica a un estudiante que se registró una calificación."""
         subject = f"Nueva Calificación Registrada - {curso}"
@@ -79,7 +91,6 @@ class EmailService:
                         <p><strong>Tipo de Evaluación:</strong> {tipo_evaluacion}</p>
                         <p><strong>Nota:</strong> <span style="font-size: 24px; color: #27ae60; font-weight: bold;">{nota}/5.0</span></p>
                     </div>
-                    <p>Puedes ver el detalle completo en el sistema.</p>
                 </div>
                 <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
                     <p>Este es un correo automático, por favor no responder.</p>
@@ -88,7 +99,7 @@ class EmailService:
         </html>
         """
         return self.send_email(to_email, subject, html_content)
-    
+
     def notify_material_uploaded(self, to_email: str, nombre_estudiante: str, curso: str, nombre_archivo: str, docente: str):
         """Notifica a un estudiante que se subió nuevo material didáctico."""
         subject = f"Nuevo Material Didáctico - {curso}"
@@ -105,7 +116,6 @@ class EmailService:
                         <p><strong>Curso:</strong> {curso}</p>
                         <p><strong>Archivo:</strong> {nombre_archivo}</p>
                     </div>
-                    <p>Puedes descargarlo desde el sistema en la sección de materiales.</p>
                 </div>
                 <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
                     <p>Este es un correo automático, por favor no responder.</p>
@@ -114,13 +124,12 @@ class EmailService:
         </html>
         """
         return self.send_email(to_email, subject, html_content)
-    
+
     def notify_attendance_registered(self, to_email: str, nombre_estudiante: str, curso: str, fecha: str, presente: bool):
         """Notifica a un estudiante sobre el registro de asistencia."""
         estado = "Presente ✅" if presente else "Ausente ❌"
         color = "#27ae60" if presente else "#e74c3c"
         subject = f"Registro de Asistencia - {curso}"
-        
         html_content = f"""
         <html>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -129,11 +138,10 @@ class EmailService:
                 </div>
                 <div style="padding: 30px; background-color: #f5f5f5;">
                     <h2 style="color: {color};">Hola {nombre_estudiante},</h2>
-                    <p>Se ha registrado tu asistencia para la siguiente clase:</p>
                     <div style="background-color: white; padding: 20px; border-left: 4px solid {color}; margin: 20px 0;">
                         <p><strong>Curso:</strong> {curso}</p>
                         <p><strong>Fecha:</strong> {fecha}</p>
-                        <p><strong>Estado:</strong> <span style="font-size: 20px;">{estado}</span></p>
+                        <p><strong>Estado:</strong> {estado}</p>
                     </div>
                     {"<p style='color: #e74c3c;'>⚠️ Recuerda que las faltas pueden afectar tu rendimiento académico.</p>" if not presente else ""}
                 </div>
@@ -144,7 +152,7 @@ class EmailService:
         </html>
         """
         return self.send_email(to_email, subject, html_content)
-    
+
     def notify_course_enrollment(self, to_email: str, nombre_estudiante: str, curso: str, docente: str):
         """Notifica a un estudiante sobre su inscripción a un curso."""
         subject = f"Inscripción Exitosa - {curso}"
@@ -161,7 +169,6 @@ class EmailService:
                         <p><strong>Curso:</strong> {curso}</p>
                         <p><strong>Docente:</strong> {docente}</p>
                     </div>
-                    <p>Puedes ver el horario y más detalles en el sistema.</p>
                 </div>
                 <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
                     <p>Este es un correo automático, por favor no responder.</p>
@@ -170,6 +177,7 @@ class EmailService:
         </html>
         """
         return self.send_email(to_email, subject, html_content)
+
 
 # Instancia global del servicio
 email_service = EmailService()
