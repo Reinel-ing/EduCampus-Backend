@@ -1,5 +1,5 @@
 alembic==1.17.1
-twilio==9.3.7
+vonage==3.1.0
 annotated-types==0.7.0
 anyio==4.11.0
 bcrypt==5.0.0

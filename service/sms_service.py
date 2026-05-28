@@ -1,6 +1,6 @@
 """
 sms_service.py
-Servicio de notificaciones por SMS usando Twilio.
+Servicio de notificaciones por SMS usando Vonage.
 Envía mensajes de texto al número de teléfono del usuario
 cuando ocurren eventos importantes en el sistema.
 """
@@ -14,57 +14,61 @@ load_dotenv()
 
 def _formatear_numero(telefono: str) -> str:
     """
-    Convierte un número colombiano al formato E.164 (+57XXXXXXXXXX).
-    Si ya tiene código de país (+) lo deja igual.
-    Elimina espacios, guiones y paréntesis.
+    Convierte un número colombiano al formato requerido por Vonage (sin +).
+    Vonage espera el número en formato E.164 pero sin el símbolo +.
     """
-    numero = telefono.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    numero = (
+        telefono.strip()
+        .replace(" ", "")
+        .replace("-", "")
+        .replace("(", "")
+        .replace(")", "")
+    )
+    # Quitar el + si ya lo tiene
     if numero.startswith("+"):
-        return numero
+        return numero[1:]
     # Número colombiano de 10 dígitos (ej. 3001234567)
     if len(numero) == 10 and numero.startswith("3"):
-        return f"+57{numero}"
+        return f"57{numero}"
     # Número con 0 adelante (ej. 03001234567)
     if len(numero) == 11 and numero.startswith("0"):
-        return f"+57{numero[1:]}"
-    # Por si ya tiene 57 sin el +
+        return f"57{numero[1:]}"
+    # Ya tiene 57 sin el +
     if len(numero) == 12 and numero.startswith("57"):
-        return f"+{numero}"
-    # Devolver tal como está con + si no coincide ningún patrón
-    return f"+{numero}"
+        return numero
+    return numero
 
 
 class SMSService:
     def __init__(self):
-        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-        self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-        self.from_number = os.getenv("TWILIO_FROM_NUMBER")
-        self._client = None
+        self.api_key = os.getenv("VONAGE_API_KEY")
+        self.api_secret = os.getenv("VONAGE_API_SECRET")
+        self.from_name = os.getenv("VONAGE_FROM", "EduCampus")
+        self._sms = None
 
-    def _get_client(self):
-        """Crea el cliente Twilio de forma diferida (lazy)."""
-        if self._client is None:
-            from twilio.rest import Client
-            self._client = Client(self.account_sid, self.auth_token)
-        return self._client
+    def _get_sms(self):
+        """Crea el cliente Vonage de forma diferida (lazy)."""
+        if self._sms is None:
+            import vonage
+            client = vonage.Client(key=self.api_key, secret=self.api_secret)
+            self._sms = vonage.Sms(client)
+        return self._sms
 
     def _credenciales_ok(self) -> bool:
         """Verifica que las credenciales estén configuradas."""
         return bool(
-            self.account_sid
-            and self.auth_token
-            and self.from_number
-            and not self.account_sid.startswith("ACxxx")
+            self.api_key
+            and self.api_secret
+            and not self.api_key.startswith("xxx")
         )
 
     def enviar_sms(self, to_number: str, mensaje: str) -> bool:
         """
-        Envía un SMS al número indicado.
+        Envía un SMS al número indicado con Vonage.
         Devuelve True si tuvo éxito, False si no.
-        Si las credenciales no están configuradas, muestra aviso y no falla.
         """
         if not self._credenciales_ok():
-            print("[SMS] Credenciales Twilio no configuradas — SMS omitido.")
+            print("[SMS] Credenciales Vonage no configuradas — SMS omitido.")
             return False
 
         if not to_number or not to_number.strip():
@@ -72,14 +76,19 @@ class SMSService:
 
         try:
             numero_formateado = _formatear_numero(to_number)
-            client = self._get_client()
-            message = client.messages.create(
-                body=mensaje,
-                from_=self.from_number,
-                to=numero_formateado,
-            )
-            print(f"[SMS] Enviado a {numero_formateado} — SID: {message.sid}")
-            return True
+            sms = self._get_sms()
+            response = sms.send_message({
+                "from": self.from_name,
+                "to": numero_formateado,
+                "text": mensaje,
+            })
+            if response["messages"][0]["status"] == "0":
+                print(f"[SMS] Enviado a {numero_formateado} — ID: {response['messages'][0].get('message-id', '')}")
+                return True
+            else:
+                error = response["messages"][0].get("error-text", "Error desconocido")
+                print(f"[SMS] Error al enviar a {numero_formateado}: {error}")
+                return False
         except Exception as e:
             print(f"[SMS] Error al enviar a {to_number}: {e}")
             return False
@@ -92,8 +101,8 @@ class SMSService:
             return False
         mensaje = (
             f"EduCampus: Hola {nombre}, tu cuenta de {rol} fue creada. "
-            f"Correo: tu correo registrado | Clave temporal: {password}. "
-            "Cambia tu contraseña al ingresar por primera vez."
+            f"Clave temporal: {password}. "
+            "Cambia tu contrasena al ingresar por primera vez."
         )
         return self.enviar_sms(to_number, mensaje)
 
@@ -111,7 +120,7 @@ class SMSService:
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"se registro tu nota de {tipo_evaluacion}: {nota}/5.0 "
-            f"en el curso {curso}. Ingresa al sistema para ver el detalle."
+            f"en el curso {curso}."
         )
         return self.enviar_sms(to_number, mensaje)
 
@@ -129,7 +138,7 @@ class SMSService:
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"el docente {docente} subio nuevo material '{nombre_archivo}' "
-            f"en el curso {curso}. Ingresa al sistema para descargarlo."
+            f"en el curso {curso}."
         )
         return self.enviar_sms(to_number, mensaje)
 
@@ -165,7 +174,7 @@ class SMSService:
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"te inscribiste exitosamente al curso '{curso}' "
-            f"con el docente {docente}. Ingresa al sistema para ver el horario."
+            f"con el docente {docente}."
         )
         return self.enviar_sms(to_number, mensaje)
 
