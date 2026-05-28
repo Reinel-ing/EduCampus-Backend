@@ -6,6 +6,7 @@ from models.estudiante import Estudiante
 from models.curso import Curso
 from schemas.asistencia import AsistenciaCreate, AsistenciaUpdate, AsistenciaResponse
 from service.email_service import email_service
+from service.sms_service import sms_service
 
 router = APIRouter(prefix="/asistencia", tags=["Asistencia"])
 
@@ -41,7 +42,18 @@ def registrar_asistencia(asistencia: AsistenciaCreate, db: Session = Depends(get
             )
         except Exception as e:
             print(f"Error al enviar email: {e}")
-    
+
+        try:
+            sms_service.notify_attendance_registered(
+                to_number=estudiante.telefono,
+                nombre_estudiante=f"{estudiante.nombres} {estudiante.apellidos}",
+                curso=curso.nombre,
+                fecha=str(asistencia.fecha),
+                presente=asistencia.estado
+            )
+        except Exception as e:
+            print(f"Error al enviar SMS: {e}")
+
     return db_asistencia
 
 @router.put("/{asistencia_id}", response_model=AsistenciaResponse)

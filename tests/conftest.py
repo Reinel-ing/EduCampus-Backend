@@ -10,9 +10,10 @@ from unittest.mock import MagicMock
 # ─── 1. URL de base de datos de prueba ANTES de cualquier import ──────────
 os.environ["DATABASE_URL"] = "sqlite:///./test_integration.db"
 
-# ─── 2. Reemplazar servicios externos (email, notificaciones) ─────────────
+# ─── 2. Reemplazar servicios externos (email, sms, notificaciones) ────────
 # Se hace antes de que los routers los importen
 sys.modules["service.email_service"]       = MagicMock()
+sys.modules["service.sms_service"]         = MagicMock()
 sys.modules["service.notificacion_service"] = MagicMock()
 
 # ─── 3. JSONB → JSON (SQLite no tiene JSONB) ──────────────────────────────

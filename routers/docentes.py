@@ -9,6 +9,7 @@ from models.calificacion import Calificacion
 from schemas.docente import DocenteCreate, DocenteUpdate, DocenteResponse
 from utils.security import hash_password
 from service.email_service import email_service
+from service.sms_service import sms_service
 from service.notificacion_service import crear_notificacion, notificar_admins
 
 router = APIRouter(prefix="/docentes", tags=["Docentes"])
@@ -61,6 +62,17 @@ def create_docente(docente: DocenteCreate, db: Session = Depends(get_db)):
         )
     except Exception as e:
         print(f"Error al enviar email: {e}")
+
+    # Enviar SMS de bienvenida si el docente tiene teléfono registrado
+    try:
+        sms_service.notify_user_created(
+            to_number=db_docente.telefono,
+            nombre=f"{db_docente.nombres} {db_docente.apellidos}",
+            rol="Docente",
+            password=plain_password
+        )
+    except Exception as e:
+        print(f"Error al enviar SMS: {e}")
 
     return db_docente
 

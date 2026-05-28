@@ -6,6 +6,7 @@ class DocenteBase(BaseModel):
     cedula: str
     correo: str
     especialidad: str | None = None
+    telefono: str | None = None
     estado: bool = True
 
     @field_validator("correo")
@@ -26,6 +27,7 @@ class DocenteUpdate(BaseModel):
     correo: str | None = None
     contraseña: str | None = None
     especialidad: str | None = None
+    telefono: str | None = None
     estado: bool | None = None
 
     @field_validator("correo")

@@ -7,6 +7,7 @@ from models.estudiante import Estudiante
 from models.docente import Docente
 from schemas.inscripcion import InscripcionCreate, InscripcionResponse
 from service.email_service import email_service
+from service.sms_service import sms_service
 from service.notificacion_service import crear_notificacion, notificar_admins
 
 router = APIRouter(prefix="/inscripciones", tags=["Inscripciones"])
@@ -119,6 +120,16 @@ def inscribir_estudiante(inscripcion: InscripcionCreate, db: Session = Depends(g
             )
         except Exception as e:
             print(f"Error al enviar email: {e}")
+
+        try:
+            sms_service.notify_course_enrollment(
+                to_number=estudiante.telefono,
+                nombre_estudiante=f"{estudiante.nombres} {estudiante.apellidos}",
+                curso=curso.nombre,
+                docente=f"{docente.nombres} {docente.apellidos}"
+            )
+        except Exception as e:
+            print(f"Error al enviar SMS: {e}")
 
     return db_inscripcion
 

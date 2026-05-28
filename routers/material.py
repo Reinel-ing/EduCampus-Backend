@@ -13,6 +13,7 @@ from datetime import date
 from dotenv import load_dotenv
 import os
 from service.email_service import email_service
+from service.sms_service import sms_service
 from service.notificacion_service import crear_notificacion, notificar_admins
 
 load_dotenv()
@@ -89,6 +90,17 @@ async def subir_material(
                     )
                 except Exception as e:
                     print(f"Error al enviar email a {estudiante.correo}: {e}")
+
+                try:
+                    sms_service.notify_material_uploaded(
+                        to_number=estudiante.telefono,
+                        nombre_estudiante=f"{estudiante.nombres} {estudiante.apellidos}",
+                        curso=curso.nombre,
+                        nombre_archivo=nombre_archivo,
+                        docente=docente_nombre
+                    )
+                except Exception as e:
+                    print(f"Error al enviar SMS a {estudiante.telefono}: {e}")
         # Notificacion para los admins
         notificar_admins(
             db,

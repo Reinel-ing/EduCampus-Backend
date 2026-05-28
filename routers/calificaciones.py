@@ -6,6 +6,7 @@ from models.estudiante import Estudiante
 from models.curso import Curso
 from schemas.calificacion import CalificacionCreate, CalificacionUpdate, CalificacionResponse
 from service.email_service import email_service
+from service.sms_service import sms_service
 from service.notificacion_service import crear_notificacion, notificar_admins
 
 router = APIRouter(prefix="/calificaciones", tags=["Calificaciones"])
@@ -61,6 +62,17 @@ def crear_calificacion(calificacion: CalificacionCreate, db: Session = Depends(g
             )
         except Exception as e:
             print(f"Error al enviar email: {e}")
+
+        try:
+            sms_service.notify_grade_registered(
+                to_number=estudiante.telefono,
+                nombre_estudiante=f"{estudiante.nombres} {estudiante.apellidos}",
+                curso=curso.nombre,
+                tipo_evaluacion=tipo_eval,
+                nota=calificacion.nota
+            )
+        except Exception as e:
+            print(f"Error al enviar SMS: {e}")
 
     return db_calificacion
 

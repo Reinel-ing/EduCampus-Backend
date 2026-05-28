@@ -8,6 +8,7 @@ from schemas.estudiante import EstudianteCreate, EstudianteUpdate, EstudianteRes
 from datetime import datetime
 from utils.security import hash_password
 from service.email_service import email_service
+from service.sms_service import sms_service
 from service.notificacion_service import crear_notificacion, notificar_admins
 
 router = APIRouter(prefix="/estudiantes", tags=["Estudiantes"])
@@ -60,6 +61,17 @@ def create_estudiante(estudiante: EstudianteCreate, db: Session = Depends(get_db
         )
     except Exception as e:
         print(f"Error al enviar email: {e}")
+
+    # Enviar SMS de bienvenida si el estudiante tiene teléfono registrado
+    try:
+        sms_service.notify_user_created(
+            to_number=db_estudiante.telefono,
+            nombre=f"{db_estudiante.nombres} {db_estudiante.apellidos}",
+            rol="Estudiante",
+            password=plain_password
+        )
+    except Exception as e:
+        print(f"Error al enviar SMS: {e}")
 
     return db_estudiante
 

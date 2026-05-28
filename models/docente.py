@@ -11,4 +11,5 @@ class Docente(Base):
     correo = Column(String(120), unique=True, nullable=False)
     contraseña = Column(String(255), nullable=False)
     especialidad = Column(String(100))
+    telefono = Column(String(20))
     estado = Column(Boolean, default=True)
