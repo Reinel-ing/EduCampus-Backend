@@ -118,10 +118,11 @@ def test_servicios_externos(email: str, telefono: str = None):
     """
     resultado = {
         "configuracion": {
-            "gmail_user":        email_service.gmail_user or "❌ NO CONFIGURADO",
-            "gmail_password_ok": bool(email_service.gmail_password),
-            "vonage_key_ok":     bool(sms_service.api_key),
-            "vonage_secret_ok":  bool(sms_service.api_secret),
+            "gmail_user":           email_service.gmail_user or "NO CONFIGURADO",
+            "gmail_password_ok":    bool(email_service.gmail_password),
+            "twilio_account_ok":    bool(sms_service.account_sid),
+            "twilio_auth_ok":       bool(sms_service.auth_token),
+            "twilio_from":          sms_service.from_number or "NO CONFIGURADO",
         },
         "email": {"ok": False, "detalle": ""},
         "sms":   {"ok": False, "detalle": ""},

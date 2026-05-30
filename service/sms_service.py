@@ -1,6 +1,6 @@
 """
 sms_service.py
-Servicio de notificaciones por SMS usando Vonage.
+Servicio de notificaciones por SMS usando Twilio.
 Envía mensajes de texto al número de teléfono del usuario
 cuando ocurren eventos importantes en el sistema.
 """
@@ -14,8 +14,7 @@ load_dotenv()
 
 def _formatear_numero(telefono: str) -> str:
     """
-    Convierte un número colombiano al formato requerido por Vonage (sin +).
-    Vonage espera el número en formato E.164 pero sin el símbolo +.
+    Convierte un número colombiano al formato E.164 requerido por Twilio (+57XXXXXXXXXX).
     """
     numero = (
         telefono.strip()
@@ -24,71 +23,54 @@ def _formatear_numero(telefono: str) -> str:
         .replace("(", "")
         .replace(")", "")
     )
-    # Quitar el + si ya lo tiene
+    # Ya está en E.164 completo
     if numero.startswith("+"):
-        return numero[1:]
+        return numero
     # Número colombiano de 10 dígitos (ej. 3001234567)
     if len(numero) == 10 and numero.startswith("3"):
-        return f"57{numero}"
+        return f"+57{numero}"
     # Número con 0 adelante (ej. 03001234567)
     if len(numero) == 11 and numero.startswith("0"):
-        return f"57{numero[1:]}"
+        return f"+57{numero[1:]}"
     # Ya tiene 57 sin el +
     if len(numero) == 12 and numero.startswith("57"):
-        return numero
-    return numero
+        return f"+{numero}"
+    return f"+{numero}"
 
 
 class SMSService:
     def __init__(self):
-        self.api_key = os.getenv("VONAGE_API_KEY")
-        self.api_secret = os.getenv("VONAGE_API_SECRET")
-        self.from_name = os.getenv("VONAGE_FROM", "EduCampus")
-        self._sms = None
-
-    def _get_sms(self):
-        """Crea el cliente Vonage de forma diferida (lazy)."""
-        if self._sms is None:
-            import vonage
-            client = vonage.Client(key=self.api_key, secret=self.api_secret)
-            self._sms = vonage.Sms(client)
-        return self._sms
+        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        self.auth_token  = os.getenv("TWILIO_AUTH_TOKEN")
+        self.from_number = os.getenv("TWILIO_FROM")   # ej. +12345678901
 
     def _credenciales_ok(self) -> bool:
         """Verifica que las credenciales estén configuradas."""
-        return bool(
-            self.api_key
-            and self.api_secret
-            and not self.api_key.startswith("xxx")
-        )
+        return bool(self.account_sid and self.auth_token and self.from_number)
 
     def enviar_sms(self, to_number: str, mensaje: str) -> bool:
         """
-        Envía un SMS al número indicado con Vonage.
+        Envía un SMS al número indicado usando Twilio.
         Devuelve True si tuvo éxito, False si no.
         """
         if not self._credenciales_ok():
-            print("[SMS] Credenciales Vonage no configuradas — SMS omitido.")
+            print("[SMS] Credenciales Twilio no configuradas — SMS omitido.")
             return False
 
         if not to_number or not to_number.strip():
             return False
 
         try:
+            from twilio.rest import Client
             numero_formateado = _formatear_numero(to_number)
-            sms = self._get_sms()
-            response = sms.send_message({
-                "from": self.from_name,
-                "to": numero_formateado,
-                "text": mensaje,
-            })
-            if response["messages"][0]["status"] == "0":
-                print(f"[SMS] Enviado a {numero_formateado} — ID: {response['messages'][0].get('message-id', '')}")
-                return True
-            else:
-                error = response["messages"][0].get("error-text", "Error desconocido")
-                print(f"[SMS] Error al enviar a {numero_formateado}: {error}")
-                return False
+            client = Client(self.account_sid, self.auth_token)
+            message = client.messages.create(
+                body=mensaje,
+                from_=self.from_number,
+                to=numero_formateado,
+            )
+            print(f"[SMS] Enviado a {numero_formateado} — SID: {message.sid}")
+            return True
         except Exception as e:
             print(f"[SMS] Error al enviar a {to_number}: {e}")
             return False
