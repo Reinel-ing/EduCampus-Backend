@@ -178,6 +178,210 @@ class EmailService:
         """
         return self.send_email(to_email, subject, html_content)
 
+    def notify_profile_updated(self, to_email: str, nombre: str, rol: str):
+        """Notifica a un usuario que su perfil fue actualizado."""
+        subject = "Tu perfil ha sido actualizado - EduCampus"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background-color: #2e86de; padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">✏️ Perfil Actualizado</h1>
+                </div>
+                <div style="padding: 30px; background-color: #f5f5f5;">
+                    <h2 style="color: #2e86de;">Hola {nombre},</h2>
+                    <p>Tu perfil de <strong>{rol}</strong> en EduCampus ha sido actualizado exitosamente.</p>
+                    <div style="background-color: white; padding: 20px; border-left: 4px solid #2e86de; margin: 20px 0;">
+                        <p>Si no realizaste o solicitaste este cambio, comunícate de inmediato con el administrador del sistema.</p>
+                    </div>
+                </div>
+                <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
+                    <p>Este es un correo automático, por favor no responder.</p>
+                    <p>&copy; 2025 Sistema Académico EduCampus</p>
+                </div>
+            </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, html_content)
+
+    def notify_account_deleted(self, to_email: str, nombre: str, rol: str):
+        """Notifica a un usuario que su cuenta fue eliminada."""
+        subject = "Cuenta eliminada - EduCampus"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background-color: #e74c3c; padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">🗑️ Cuenta Eliminada</h1>
+                </div>
+                <div style="padding: 30px; background-color: #f5f5f5;">
+                    <h2 style="color: #e74c3c;">Hola {nombre},</h2>
+                    <p>Tu cuenta de <strong>{rol}</strong> ha sido eliminada del sistema EduCampus.</p>
+                    <div style="background-color: white; padding: 20px; border-left: 4px solid #e74c3c; margin: 20px 0;">
+                        <p>Si tienes alguna duda sobre esta acción, contacta al administrador.</p>
+                    </div>
+                </div>
+                <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
+                    <p>Este es un correo automático, por favor no responder.</p>
+                    <p>&copy; 2025 Sistema Académico EduCampus</p>
+                </div>
+            </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, html_content)
+
+    def notify_grade_updated(self, to_email: str, nombre_estudiante: str, curso: str, tipo_evaluacion: str, nota_nueva: float):
+        """Notifica a un estudiante que su calificación fue actualizada."""
+        subject = f"Calificación Actualizada - {curso}"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background-color: #27ae60; padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">📊 Calificación Actualizada</h1>
+                </div>
+                <div style="padding: 30px; background-color: #f5f5f5;">
+                    <h2 style="color: #27ae60;">Hola {nombre_estudiante},</h2>
+                    <p>Tu calificación ha sido actualizada.</p>
+                    <div style="background-color: white; padding: 20px; border-left: 4px solid #27ae60; margin: 20px 0;">
+                        <p><strong>Curso:</strong> {curso}</p>
+                        <p><strong>Tipo de Evaluación:</strong> {tipo_evaluacion}</p>
+                        <p><strong>Nueva Nota:</strong> <span style="font-size: 24px; color: #27ae60; font-weight: bold;">{nota_nueva}/5.0</span></p>
+                    </div>
+                </div>
+                <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
+                    <p>Este es un correo automático, por favor no responder.</p>
+                </div>
+            </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, html_content)
+
+    def notify_attendance_corrected(self, to_email: str, nombre_estudiante: str, curso: str, fecha: str, presente: bool):
+        """Notifica a un estudiante que su asistencia fue corregida."""
+        estado = "Presente ✅" if presente else "Ausente ❌"
+        color = "#27ae60" if presente else "#e74c3c"
+        subject = f"Asistencia Corregida - {curso}"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background-color: {color}; padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">📋 Asistencia Corregida</h1>
+                </div>
+                <div style="padding: 30px; background-color: #f5f5f5;">
+                    <h2 style="color: {color};">Hola {nombre_estudiante},</h2>
+                    <p>Tu registro de asistencia ha sido corregido.</p>
+                    <div style="background-color: white; padding: 20px; border-left: 4px solid {color}; margin: 20px 0;">
+                        <p><strong>Curso:</strong> {curso}</p>
+                        <p><strong>Fecha:</strong> {fecha}</p>
+                        <p><strong>Estado corregido:</strong> {estado}</p>
+                    </div>
+                </div>
+                <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
+                    <p>Este es un correo automático, por favor no responder.</p>
+                </div>
+            </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, html_content)
+
+    def notify_enrollment_cancelled(self, to_email: str, nombre_estudiante: str, curso: str):
+        """Notifica a un estudiante que su inscripción fue cancelada."""
+        subject = f"Inscripción Cancelada - {curso}"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background-color: #e74c3c; padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">❌ Inscripción Cancelada</h1>
+                </div>
+                <div style="padding: 30px; background-color: #f5f5f5;">
+                    <h2 style="color: #e74c3c;">Hola {nombre_estudiante},</h2>
+                    <p>Tu inscripción al siguiente curso ha sido cancelada:</p>
+                    <div style="background-color: white; padding: 20px; border-left: 4px solid #e74c3c; margin: 20px 0;">
+                        <p><strong>Curso:</strong> {curso}</p>
+                    </div>
+                    <p>Si tienes preguntas, contacta al administrador.</p>
+                </div>
+                <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
+                    <p>Este es un correo automático, por favor no responder.</p>
+                </div>
+            </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, html_content)
+
+    def notify_course_updated(self, to_email: str, nombre: str, curso: str):
+        """Notifica a un usuario que un curso fue actualizado."""
+        subject = f"Curso Actualizado - {curso}"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background-color: #f39c12; padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">📚 Curso Actualizado</h1>
+                </div>
+                <div style="padding: 30px; background-color: #f5f5f5;">
+                    <h2 style="color: #f39c12;">Hola {nombre},</h2>
+                    <p>El siguiente curso ha sido actualizado:</p>
+                    <div style="background-color: white; padding: 20px; border-left: 4px solid #f39c12; margin: 20px 0;">
+                        <p><strong>Curso:</strong> {curso}</p>
+                    </div>
+                    <p>Ingresa al sistema para ver los cambios actualizados.</p>
+                </div>
+                <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
+                    <p>Este es un correo automático, por favor no responder.</p>
+                </div>
+            </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, html_content)
+
+    def notify_course_deleted(self, to_email: str, nombre: str, curso: str):
+        """Notifica a un usuario que un curso fue eliminado."""
+        subject = f"Curso Eliminado - {curso}"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background-color: #e74c3c; padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">🗑️ Curso Eliminado</h1>
+                </div>
+                <div style="padding: 30px; background-color: #f5f5f5;">
+                    <h2 style="color: #e74c3c;">Hola {nombre},</h2>
+                    <p>El siguiente curso ha sido eliminado del sistema:</p>
+                    <div style="background-color: white; padding: 20px; border-left: 4px solid #e74c3c; margin: 20px 0;">
+                        <p><strong>Curso:</strong> {curso}</p>
+                    </div>
+                    <p>Si tienes preguntas, contacta al administrador.</p>
+                </div>
+                <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
+                    <p>Este es un correo automático, por favor no responder.</p>
+                </div>
+            </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, html_content)
+
+    def notify_material_deleted(self, to_email: str, nombre_estudiante: str, curso: str, nombre_archivo: str):
+        """Notifica a un estudiante que un material fue eliminado."""
+        subject = f"Material Eliminado - {curso}"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background-color: #95a5a6; padding: 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">📁 Material Eliminado</h1>
+                </div>
+                <div style="padding: 30px; background-color: #f5f5f5;">
+                    <h2 style="color: #7f8c8d;">Hola {nombre_estudiante},</h2>
+                    <p>El siguiente material ha sido eliminado del curso:</p>
+                    <div style="background-color: white; padding: 20px; border-left: 4px solid #95a5a6; margin: 20px 0;">
+                        <p><strong>Curso:</strong> {curso}</p>
+                        <p><strong>Archivo:</strong> {nombre_archivo}</p>
+                    </div>
+                </div>
+                <div style="padding: 20px; text-align: center; color: #888; font-size: 12px;">
+                    <p>Este es un correo automático, por favor no responder.</p>
+                </div>
+            </body>
+        </html>
+        """
+        return self.send_email(to_email, subject, html_content)
+
 
 # Instancia global del servicio
 email_service = EmailService()

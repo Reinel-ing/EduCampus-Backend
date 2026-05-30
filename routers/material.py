@@ -130,8 +130,40 @@ def eliminar_material(material_id: int, db: Session = Depends(get_db)):
     material = db.query(MaterialDidactico).filter(MaterialDidactico.id_material == material_id).first()
     if not material:
         raise HTTPException(status_code=404, detail="Material no encontrado")
+
+    # Guardar datos antes de eliminar
+    id_curso = material.id_curso
+    nombre_archivo = material.nombre_archivo
+
     db.delete(material)
     db.commit()
+
+    # Notificar a todos los estudiantes inscritos en el curso
+    curso = db.query(Curso).filter(Curso.id_curso == id_curso).first()
+    if curso:
+        inscripciones = db.query(EstudianteCurso).filter(EstudianteCurso.id_curso == id_curso).all()
+        for inscripcion in inscripciones:
+            estudiante = db.query(Estudiante).filter(Estudiante.id_estudiante == inscripcion.id_estudiante).first()
+            if estudiante:
+                nombre_completo = f"{estudiante.nombres} {estudiante.apellidos}"
+                try:
+                    email_service.notify_material_deleted(
+                        to_email=estudiante.correo,
+                        nombre_estudiante=nombre_completo,
+                        curso=curso.nombre,
+                        nombre_archivo=nombre_archivo
+                    )
+                except Exception as e:
+                    print(f"Error al enviar email a {estudiante.correo}: {e}")
+                try:
+                    sms_service.notify_material_deleted(
+                        to_number=estudiante.telefono,
+                        nombre_estudiante=nombre_completo,
+                        curso=curso.nombre,
+                        nombre_archivo=nombre_archivo
+                    )
+                except Exception as e:
+                    print(f"Error al enviar SMS a {estudiante.telefono}: {e}")
 
 @router.get("/por-docente/{docente_id}", response_model=list[dict])
 def listar_material_por_docente(docente_id: int, db: Session = Depends(get_db)):

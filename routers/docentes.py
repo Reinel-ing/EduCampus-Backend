@@ -92,17 +92,48 @@ def update_docente(docente_id: int, docente: DocenteUpdate, db: Session = Depend
     db_docente = db.query(Docente).filter(Docente.id_docente == docente_id).first()
     if not db_docente:
         raise HTTPException(status_code=404, detail="Docente no encontrado")
-    
+
     update_data = docente.model_dump(exclude_unset=True)
-    
+
     # Si se actualiza la contraseña, hashearla
     if "contraseña" in update_data and update_data["contraseña"]:
         update_data["contraseña"] = hash_password(update_data["contraseña"])
-    
+
     for key, value in update_data.items():
         setattr(db_docente, key, value)
     db.commit()
     db.refresh(db_docente)
+
+    nombre_completo = f"{db_docente.nombres} {db_docente.apellidos}"
+    # Notificacion en BD
+    crear_notificacion(
+        db,
+        titulo="Perfil actualizado",
+        mensaje="Tu perfil de Docente ha sido actualizado en EduCampus.",
+        tipo="sistema",
+        id_destinatario=db_docente.id_docente,
+        tipo_destinatario="docente",
+    )
+    db.commit()
+    # Email
+    try:
+        email_service.notify_profile_updated(
+            to_email=db_docente.correo,
+            nombre=nombre_completo,
+            rol="Docente"
+        )
+    except Exception as e:
+        print(f"Error al enviar email: {e}")
+    # SMS
+    try:
+        sms_service.notify_profile_updated(
+            to_number=db_docente.telefono,
+            nombre=nombre_completo,
+            rol="Docente"
+        )
+    except Exception as e:
+        print(f"Error al enviar SMS: {e}")
+
     return db_docente
 
 @router.delete("/{docente_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -110,6 +141,28 @@ def delete_docente(docente_id: int, db: Session = Depends(get_db)):
     db_docente = db.query(Docente).filter(Docente.id_docente == docente_id).first()
     if not db_docente:
         raise HTTPException(status_code=404, detail="Docente no encontrado")
+
+    nombre_completo = f"{db_docente.nombres} {db_docente.apellidos}"
+    correo = db_docente.correo
+    telefono = db_docente.telefono
+    # Notificar antes de eliminar
+    try:
+        email_service.notify_account_deleted(
+            to_email=correo,
+            nombre=nombre_completo,
+            rol="Docente"
+        )
+    except Exception as e:
+        print(f"Error al enviar email: {e}")
+    try:
+        sms_service.notify_account_deleted(
+            to_number=telefono,
+            nombre=nombre_completo,
+            rol="Docente"
+        )
+    except Exception as e:
+        print(f"Error al enviar SMS: {e}")
+
     db.delete(db_docente)
     db.commit()
 

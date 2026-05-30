@@ -7,6 +7,7 @@ from models.curso import Curso
 from schemas.asistencia import AsistenciaCreate, AsistenciaUpdate, AsistenciaResponse
 from service.email_service import email_service
 from service.sms_service import sms_service
+from service.notificacion_service import crear_notificacion
 
 router = APIRouter(prefix="/asistencia", tags=["Asistencia"])
 
@@ -65,6 +66,46 @@ def editar_asistencia(asistencia_id: int, asistencia: AsistenciaUpdate, db: Sess
         setattr(db_asistencia, key, value)
     db.commit()
     db.refresh(db_asistencia)
+
+    # Notificar al estudiante sobre la corrección de asistencia
+    estudiante = db.query(Estudiante).filter(Estudiante.id_estudiante == db_asistencia.id_estudiante).first()
+    curso = db.query(Curso).filter(Curso.id_curso == db_asistencia.id_curso).first()
+
+    if estudiante and curso:
+        # Notificacion en BD
+        estado_texto = "PRESENTE" if db_asistencia.estado else "AUSENTE"
+        crear_notificacion(
+            db,
+            titulo=f"Asistencia corregida - {curso.nombre}",
+            mensaje=f"Tu asistencia del {db_asistencia.fecha} en {curso.nombre} fue corregida a {estado_texto}.",
+            tipo="asistencia",
+            id_destinatario=estudiante.id_estudiante,
+            tipo_destinatario="estudiante",
+        )
+        db.commit()
+        # Email
+        try:
+            email_service.notify_attendance_corrected(
+                to_email=estudiante.correo,
+                nombre_estudiante=f"{estudiante.nombres} {estudiante.apellidos}",
+                curso=curso.nombre,
+                fecha=str(db_asistencia.fecha),
+                presente=db_asistencia.estado
+            )
+        except Exception as e:
+            print(f"Error al enviar email: {e}")
+        # SMS
+        try:
+            sms_service.notify_attendance_corrected(
+                to_number=estudiante.telefono,
+                nombre_estudiante=f"{estudiante.nombres} {estudiante.apellidos}",
+                curso=curso.nombre,
+                fecha=str(db_asistencia.fecha),
+                presente=db_asistencia.estado
+            )
+        except Exception as e:
+            print(f"Error al enviar SMS: {e}")
+
     return db_asistencia
 
 @router.get("/por-estudiante/{estudiante_id}", response_model=list[AsistenciaResponse])

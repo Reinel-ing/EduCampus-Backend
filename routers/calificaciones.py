@@ -87,6 +87,48 @@ def actualizar_calificacion(calificacion_id: int, calificacion: CalificacionUpda
         setattr(db_calificacion, key, value)
     db.commit()
     db.refresh(db_calificacion)
+
+    # Notificar al estudiante sobre la actualización de calificación
+    estudiante = db.query(Estudiante).filter(Estudiante.id_estudiante == db_calificacion.id_estudiante).first()
+    curso = db.query(Curso).filter(Curso.id_curso == db_calificacion.id_curso).first()
+
+    if estudiante and curso:
+        tipo_eval = {1: "Parcial 1", 2: "Parcial 2", 3: "Final"}.get(db_calificacion.tipo_evaluacion, "Evaluación")
+        nota_nueva = float(db_calificacion.nota)
+
+        # Notificacion en BD
+        crear_notificacion(
+            db,
+            titulo=f"Calificacion actualizada - {curso.nombre}",
+            mensaje=f"Tu nota de {tipo_eval} fue actualizada a {nota_nueva}/5.0 en el curso {curso.nombre}.",
+            tipo="calificacion",
+            id_destinatario=estudiante.id_estudiante,
+            tipo_destinatario="estudiante",
+        )
+        db.commit()
+        # Email
+        try:
+            email_service.notify_grade_updated(
+                to_email=estudiante.correo,
+                nombre_estudiante=f"{estudiante.nombres} {estudiante.apellidos}",
+                curso=curso.nombre,
+                tipo_evaluacion=tipo_eval,
+                nota_nueva=nota_nueva
+            )
+        except Exception as e:
+            print(f"Error al enviar email: {e}")
+        # SMS
+        try:
+            sms_service.notify_grade_updated(
+                to_number=estudiante.telefono,
+                nombre_estudiante=f"{estudiante.nombres} {estudiante.apellidos}",
+                curso=curso.nombre,
+                tipo_evaluacion=tipo_eval,
+                nota_nueva=nota_nueva
+            )
+        except Exception as e:
+            print(f"Error al enviar SMS: {e}")
+
     return db_calificacion
 
 @router.get("/por-curso/{curso_id}", response_model=list[CalificacionResponse])

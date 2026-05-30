@@ -138,8 +138,45 @@ def eliminar_inscripcion(inscripcion_id: int, db: Session = Depends(get_db)):
     inscripcion = db.query(EstudianteCurso).filter(EstudianteCurso.id == inscripcion_id).first()
     if not inscripcion:
         raise HTTPException(status_code=404, detail="Inscripción no encontrada")
+
+    # Obtener datos antes de eliminar para poder notificar
+    estudiante = db.query(Estudiante).filter(Estudiante.id_estudiante == inscripcion.id_estudiante).first()
+    curso = db.query(Curso).filter(Curso.id_curso == inscripcion.id_curso).first()
+
     db.delete(inscripcion)
     db.commit()
+
+    # Notificar al estudiante después de eliminar la inscripción
+    if estudiante and curso:
+        nombre_completo = f"{estudiante.nombres} {estudiante.apellidos}"
+        # Notificacion en BD
+        crear_notificacion(
+            db,
+            titulo=f"Inscripcion cancelada - {curso.nombre}",
+            mensaje=f"Tu inscripcion al curso '{curso.nombre}' ha sido cancelada.",
+            tipo="inscripcion",
+            id_destinatario=estudiante.id_estudiante,
+            tipo_destinatario="estudiante",
+        )
+        db.commit()
+        # Email
+        try:
+            email_service.notify_enrollment_cancelled(
+                to_email=estudiante.correo,
+                nombre_estudiante=nombre_completo,
+                curso=curso.nombre
+            )
+        except Exception as e:
+            print(f"Error al enviar email: {e}")
+        # SMS
+        try:
+            sms_service.notify_enrollment_cancelled(
+                to_number=estudiante.telefono,
+                nombre_estudiante=nombre_completo,
+                curso=curso.nombre
+            )
+        except Exception as e:
+            print(f"Error al enviar SMS: {e}")
 
 @router.get("/por-estudiante/{estudiante_id}", response_model=list)
 def cursos_por_estudiante(estudiante_id: int, db: Session = Depends(get_db)):

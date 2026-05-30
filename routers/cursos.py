@@ -3,9 +3,13 @@ from sqlalchemy.orm import Session
 from config.db import SessionLocal
 from models.curso import Curso
 from models.docente import Docente
+from models.estudiante import Estudiante
 from models.estudiante_curso import EstudianteCurso
 from schemas.curso import CursoCreate, CursoUpdate, CursoResponse
 from datetime import datetime
+from service.email_service import email_service
+from service.sms_service import sms_service
+from service.notificacion_service import crear_notificacion, notificar_admins
 
 router = APIRouter(prefix="/cursos", tags=["Cursos"])
 
@@ -44,6 +48,71 @@ def update_curso(curso_id: int, curso: CursoUpdate, db: Session = Depends(get_db
         setattr(db_curso, key, value)
     db.commit()
     db.refresh(db_curso)
+
+    nombre_curso = db_curso.nombre
+
+    # Notificar al docente asignado
+    if db_curso.id_docente:
+        docente = db.query(Docente).filter(Docente.id_docente == db_curso.id_docente).first()
+        if docente:
+            nombre_docente = f"{docente.nombres} {docente.apellidos}"
+            crear_notificacion(
+                db,
+                titulo=f"Curso actualizado: {nombre_curso}",
+                mensaje=f"El curso '{nombre_curso}' que impartes ha sido actualizado.",
+                tipo="sistema",
+                id_destinatario=docente.id_docente,
+                tipo_destinatario="docente",
+            )
+            try:
+                email_service.notify_course_updated(
+                    to_email=docente.correo,
+                    nombre=nombre_docente,
+                    curso=nombre_curso
+                )
+            except Exception as e:
+                print(f"Error al enviar email al docente: {e}")
+            try:
+                sms_service.notify_course_updated(
+                    to_number=docente.telefono,
+                    nombre=nombre_docente,
+                    curso=nombre_curso
+                )
+            except Exception as e:
+                print(f"Error al enviar SMS al docente: {e}")
+
+    # Notificar a todos los estudiantes inscritos
+    inscripciones = db.query(EstudianteCurso).filter(EstudianteCurso.id_curso == curso_id).all()
+    for insc in inscripciones:
+        estudiante = db.query(Estudiante).filter(Estudiante.id_estudiante == insc.id_estudiante).first()
+        if estudiante:
+            nombre_est = f"{estudiante.nombres} {estudiante.apellidos}"
+            crear_notificacion(
+                db,
+                titulo=f"Curso actualizado: {nombre_curso}",
+                mensaje=f"El curso '{nombre_curso}' en el que estás inscrito ha sido actualizado.",
+                tipo="sistema",
+                id_destinatario=estudiante.id_estudiante,
+                tipo_destinatario="estudiante",
+            )
+            try:
+                email_service.notify_course_updated(
+                    to_email=estudiante.correo,
+                    nombre=nombre_est,
+                    curso=nombre_curso
+                )
+            except Exception as e:
+                print(f"Error al enviar email a estudiante: {e}")
+            try:
+                sms_service.notify_course_updated(
+                    to_number=estudiante.telefono,
+                    nombre=nombre_est,
+                    curso=nombre_curso
+                )
+            except Exception as e:
+                print(f"Error al enviar SMS a estudiante: {e}")
+
+    db.commit()
     return db_curso
 
 @router.delete("/{curso_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -51,8 +120,63 @@ def delete_curso(curso_id: int, db: Session = Depends(get_db)):
     db_curso = db.query(Curso).filter(Curso.id_curso == curso_id).first()
     if not db_curso:
         raise HTTPException(status_code=404, detail="Curso no encontrado")
+
+    nombre_curso = db_curso.nombre
+
+    # Recopilar datos antes de eliminar
+    docente = None
+    if db_curso.id_docente:
+        docente = db.query(Docente).filter(Docente.id_docente == db_curso.id_docente).first()
+
+    inscripciones = db.query(EstudianteCurso).filter(EstudianteCurso.id_curso == curso_id).all()
+    estudiantes_notificar = []
+    for insc in inscripciones:
+        est = db.query(Estudiante).filter(Estudiante.id_estudiante == insc.id_estudiante).first()
+        if est:
+            estudiantes_notificar.append(est)
+
     db.delete(db_curso)
     db.commit()
+
+    # Notificar al docente
+    if docente:
+        nombre_docente = f"{docente.nombres} {docente.apellidos}"
+        try:
+            email_service.notify_course_deleted(
+                to_email=docente.correo,
+                nombre=nombre_docente,
+                curso=nombre_curso
+            )
+        except Exception as e:
+            print(f"Error al enviar email al docente: {e}")
+        try:
+            sms_service.notify_course_deleted(
+                to_number=docente.telefono,
+                nombre=nombre_docente,
+                curso=nombre_curso
+            )
+        except Exception as e:
+            print(f"Error al enviar SMS al docente: {e}")
+
+    # Notificar a los estudiantes inscritos
+    for estudiante in estudiantes_notificar:
+        nombre_est = f"{estudiante.nombres} {estudiante.apellidos}"
+        try:
+            email_service.notify_course_deleted(
+                to_email=estudiante.correo,
+                nombre=nombre_est,
+                curso=nombre_curso
+            )
+        except Exception as e:
+            print(f"Error al enviar email a estudiante: {e}")
+        try:
+            sms_service.notify_course_deleted(
+                to_number=estudiante.telefono,
+                nombre=nombre_est,
+                curso=nombre_curso
+            )
+        except Exception as e:
+            print(f"Error al enviar SMS a estudiante: {e}")
 
 @router.get("/{curso_id}/estudiantes", response_model=list)
 def estudiantes_del_curso(curso_id: int, db: Session = Depends(get_db)):

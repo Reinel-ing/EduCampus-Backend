@@ -178,6 +178,127 @@ class SMSService:
         )
         return self.enviar_sms(to_number, mensaje)
 
+    def notify_profile_updated(self, to_number: Optional[str], nombre: str, rol: str) -> bool:
+        """SMS cuando el perfil de un usuario es actualizado."""
+        if not to_number:
+            return False
+        mensaje = (
+            f"EduCampus: Hola {nombre}, tu perfil de {rol} "
+            "fue actualizado exitosamente. Si no realizaste este cambio, "
+            "contacta al administrador."
+        )
+        return self.enviar_sms(to_number, mensaje)
+
+    def notify_account_deleted(self, to_number: Optional[str], nombre: str, rol: str) -> bool:
+        """SMS cuando la cuenta de un usuario es eliminada."""
+        if not to_number:
+            return False
+        mensaje = (
+            f"EduCampus: Hola {nombre}, tu cuenta de {rol} "
+            "ha sido eliminada del sistema. "
+            "Contacta al administrador si tienes dudas."
+        )
+        return self.enviar_sms(to_number, mensaje)
+
+    def notify_grade_updated(
+        self,
+        to_number: Optional[str],
+        nombre_estudiante: str,
+        curso: str,
+        tipo_evaluacion: str,
+        nota_nueva: float,
+    ) -> bool:
+        """SMS cuando una calificación es actualizada."""
+        if not to_number:
+            return False
+        mensaje = (
+            f"EduCampus: Hola {nombre_estudiante}, "
+            f"tu nota de {tipo_evaluacion} en {curso} fue actualizada a {nota_nueva}/5.0."
+        )
+        return self.enviar_sms(to_number, mensaje)
+
+    def notify_attendance_corrected(
+        self,
+        to_number: Optional[str],
+        nombre_estudiante: str,
+        curso: str,
+        fecha: str,
+        presente: bool,
+    ) -> bool:
+        """SMS cuando una asistencia es corregida."""
+        if not to_number:
+            return False
+        estado = "PRESENTE" if presente else "AUSENTE"
+        mensaje = (
+            f"EduCampus: Hola {nombre_estudiante}, "
+            f"tu asistencia del {fecha} en {curso} fue corregida a {estado}."
+        )
+        return self.enviar_sms(to_number, mensaje)
+
+    def notify_enrollment_cancelled(
+        self,
+        to_number: Optional[str],
+        nombre_estudiante: str,
+        curso: str,
+    ) -> bool:
+        """SMS cuando la inscripción de un estudiante es cancelada."""
+        if not to_number:
+            return False
+        mensaje = (
+            f"EduCampus: Hola {nombre_estudiante}, "
+            f"tu inscripcion al curso '{curso}' ha sido cancelada. "
+            "Contacta al administrador si tienes dudas."
+        )
+        return self.enviar_sms(to_number, mensaje)
+
+    def notify_course_updated(
+        self,
+        to_number: Optional[str],
+        nombre: str,
+        curso: str,
+    ) -> bool:
+        """SMS cuando un curso es actualizado."""
+        if not to_number:
+            return False
+        mensaje = (
+            f"EduCampus: Hola {nombre}, "
+            f"el curso '{curso}' ha sido actualizado. "
+            "Ingresa al sistema para ver los cambios."
+        )
+        return self.enviar_sms(to_number, mensaje)
+
+    def notify_course_deleted(
+        self,
+        to_number: Optional[str],
+        nombre: str,
+        curso: str,
+    ) -> bool:
+        """SMS cuando un curso es eliminado."""
+        if not to_number:
+            return False
+        mensaje = (
+            f"EduCampus: Hola {nombre}, "
+            f"el curso '{curso}' ha sido eliminado del sistema. "
+            "Contacta al administrador si tienes dudas."
+        )
+        return self.enviar_sms(to_number, mensaje)
+
+    def notify_material_deleted(
+        self,
+        to_number: Optional[str],
+        nombre_estudiante: str,
+        curso: str,
+        nombre_archivo: str,
+    ) -> bool:
+        """SMS cuando un material didáctico es eliminado."""
+        if not to_number:
+            return False
+        mensaje = (
+            f"EduCampus: Hola {nombre_estudiante}, "
+            f"el archivo '{nombre_archivo}' del curso '{curso}' fue eliminado."
+        )
+        return self.enviar_sms(to_number, mensaje)
+
 
 # Instancia global del servicio
 sms_service = SMSService()
