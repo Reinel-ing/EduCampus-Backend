@@ -112,7 +112,7 @@ def crear_notificacion_manual(data: NotificacionCreate, db: Session = Depends(ge
 @router.post("/test-servicios")
 def test_servicios_externos(email: str, telefono: str = None):
     """
-    Prueba email y SMS en producción.
+    Prueba email, SMS y WhatsApp en producción.
     Llamar desde /docs → POST /notificaciones/test-servicios
     Parámetros: email=correo@ejemplo.com  telefono=3001234567 (opcional)
     """
@@ -123,9 +123,11 @@ def test_servicios_externos(email: str, telefono: str = None):
             "twilio_account_ok":    bool(sms_service.account_sid),
             "twilio_auth_ok":       bool(sms_service.auth_token),
             "twilio_from":          sms_service.from_number or "NO CONFIGURADO",
+            "twilio_whatsapp_from": sms_service.whatsapp_from or "NO CONFIGURADO",
         },
-        "email": {"ok": False, "detalle": ""},
-        "sms":   {"ok": False, "detalle": ""},
+        "email":    {"ok": False, "detalle": ""},
+        "sms":      {"ok": False, "detalle": ""},
+        "whatsapp": {"ok": False, "detalle": ""},
     }
 
     # ── Test email ──────────────────────────────────────────────────────────
@@ -153,7 +155,7 @@ def test_servicios_externos(email: str, telefono: str = None):
         else "Fallo — revisa los logs de Render para ver el error exacto"
     )
 
-    # ── Test SMS ────────────────────────────────────────────────────────────
+    # ── Test SMS y WhatsApp ─────────────────────────────────────────────────
     if telefono:
         ok_sms = sms_service.enviar_sms(
             to_number=telefono,
@@ -164,7 +166,18 @@ def test_servicios_externos(email: str, telefono: str = None):
             "Enviado correctamente" if ok_sms
             else "Fallo — revisa los logs de Render para ver el error exacto"
         )
+
+        ok_wa = sms_service.enviar_whatsapp(
+            to_number=telefono,
+            mensaje="EduCampus: Prueba de WhatsApp. Si recibes esto, el servicio WhatsApp funciona correctamente."
+        )
+        resultado["whatsapp"]["ok"]     = bool(ok_wa)
+        resultado["whatsapp"]["detalle"] = (
+            "Enviado correctamente" if ok_wa
+            else "Fallo — asegurate de haber enviado el codigo de union al sandbox de Twilio"
+        )
     else:
-        resultado["sms"]["detalle"] = "No se envio — proporciona el parametro 'telefono' para probar SMS"
+        resultado["sms"]["detalle"]      = "No se envio — proporciona el parametro 'telefono' para probar"
+        resultado["whatsapp"]["detalle"] = "No se envio — proporciona el parametro 'telefono' para probar"
 
     return resultado

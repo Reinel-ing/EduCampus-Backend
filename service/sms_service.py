@@ -1,7 +1,7 @@
 """
 sms_service.py
-Servicio de notificaciones por SMS usando Twilio.
-Envía mensajes de texto al número de teléfono del usuario
+Servicio de notificaciones por SMS y WhatsApp usando Twilio.
+Envía mensajes al número de teléfono del usuario (SMS + WhatsApp)
 cuando ocurren eventos importantes en el sistema.
 """
 
@@ -23,16 +23,12 @@ def _formatear_numero(telefono: str) -> str:
         .replace("(", "")
         .replace(")", "")
     )
-    # Ya está en E.164 completo
     if numero.startswith("+"):
         return numero
-    # Número colombiano de 10 dígitos (ej. 3001234567)
     if len(numero) == 10 and numero.startswith("3"):
         return f"+57{numero}"
-    # Número con 0 adelante (ej. 03001234567)
     if len(numero) == 11 and numero.startswith("0"):
         return f"+57{numero[1:]}"
-    # Ya tiene 57 sin el +
     if len(numero) == 12 and numero.startswith("57"):
         return f"+{numero}"
     return f"+{numero}"
@@ -40,53 +36,80 @@ def _formatear_numero(telefono: str) -> str:
 
 class SMSService:
     def __init__(self):
-        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-        self.auth_token  = os.getenv("TWILIO_AUTH_TOKEN")
-        self.from_number = os.getenv("TWILIO_FROM")   # ej. +12345678901
+        self.account_sid    = os.getenv("TWILIO_ACCOUNT_SID")
+        self.auth_token     = os.getenv("TWILIO_AUTH_TOKEN")
+        self.from_number    = os.getenv("TWILIO_FROM")           # ej. +12015551234 (para SMS)
+        self.whatsapp_from  = os.getenv(                         # ej. whatsapp:+14155238886
+            "TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886"
+        )
 
     def _credenciales_ok(self) -> bool:
-        """Verifica que las credenciales estén configuradas."""
-        return bool(self.account_sid and self.auth_token and self.from_number)
+        return bool(self.account_sid and self.auth_token)
+
+    def _get_client(self):
+        from twilio.rest import Client
+        return Client(self.account_sid, self.auth_token)
+
+    # ─── Canales base ─────────────────────────────────────────────────────────
 
     def enviar_sms(self, to_number: str, mensaje: str) -> bool:
-        """
-        Envía un SMS al número indicado usando Twilio.
-        Devuelve True si tuvo éxito, False si no.
-        """
-        if not self._credenciales_ok():
-            print("[SMS] Credenciales Twilio no configuradas — SMS omitido.")
+        """Envía un SMS usando el número de Twilio configurado."""
+        if not self._credenciales_ok() or not self.from_number:
+            print("[SMS] Credenciales o número Twilio no configurados — SMS omitido.")
             return False
-
         if not to_number or not to_number.strip():
             return False
-
         try:
-            from twilio.rest import Client
-            numero_formateado = _formatear_numero(to_number)
-            client = Client(self.account_sid, self.auth_token)
-            message = client.messages.create(
+            numero = _formatear_numero(to_number)
+            msg = self._get_client().messages.create(
                 body=mensaje,
                 from_=self.from_number,
-                to=numero_formateado,
+                to=numero,
             )
-            print(f"[SMS] Enviado a {numero_formateado} — SID: {message.sid}")
+            print(f"[SMS] Enviado a {numero} — SID: {msg.sid}")
             return True
         except Exception as e:
             print(f"[SMS] Error al enviar a {to_number}: {e}")
             return False
 
+    def enviar_whatsapp(self, to_number: str, mensaje: str) -> bool:
+        """Envía un mensaje de WhatsApp usando el sandbox/número de Twilio."""
+        if not self._credenciales_ok():
+            print("[WhatsApp] Credenciales Twilio no configuradas — WhatsApp omitido.")
+            return False
+        if not to_number or not to_number.strip():
+            return False
+        try:
+            numero = _formatear_numero(to_number)
+            msg = self._get_client().messages.create(
+                body=mensaje,
+                from_=self.whatsapp_from,
+                to=f"whatsapp:{numero}",
+            )
+            print(f"[WhatsApp] Enviado a {numero} — SID: {msg.sid}")
+            return True
+        except Exception as e:
+            print(f"[WhatsApp] Error al enviar a {to_number}: {e}")
+            return False
+
+    def _notificar(self, to_number: Optional[str], mensaje: str) -> bool:
+        """Envía por SMS y por WhatsApp en una sola llamada."""
+        if not to_number:
+            return False
+        ok_sms = self.enviar_sms(to_number, mensaje)
+        ok_wa  = self.enviar_whatsapp(to_number, mensaje)
+        return ok_sms or ok_wa
+
     # ─── Templates de notificaciones ─────────────────────────────────────────
 
     def notify_user_created(self, to_number: Optional[str], nombre: str, rol: str, password: str) -> bool:
-        """SMS de bienvenida cuando se crea una cuenta nueva."""
-        if not to_number:
-            return False
+        """SMS + WhatsApp de bienvenida cuando se crea una cuenta nueva."""
         mensaje = (
             f"EduCampus: Hola {nombre}, tu cuenta de {rol} fue creada. "
             f"Clave temporal: {password}. "
             "Cambia tu contrasena al ingresar por primera vez."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_grade_registered(
         self,
@@ -96,15 +119,12 @@ class SMSService:
         tipo_evaluacion: str,
         nota: float,
     ) -> bool:
-        """SMS cuando se registra una calificación."""
-        if not to_number:
-            return False
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"se registro tu nota de {tipo_evaluacion}: {nota}/5.0 "
             f"en el curso {curso}."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_material_uploaded(
         self,
@@ -114,15 +134,12 @@ class SMSService:
         nombre_archivo: str,
         docente: str,
     ) -> bool:
-        """SMS cuando el docente sube nuevo material didáctico."""
-        if not to_number:
-            return False
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"el docente {docente} subio nuevo material '{nombre_archivo}' "
             f"en el curso {curso}."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_attendance_registered(
         self,
@@ -132,16 +149,13 @@ class SMSService:
         fecha: str,
         presente: bool,
     ) -> bool:
-        """SMS cuando se registra la asistencia del estudiante."""
-        if not to_number:
-            return False
         estado = "PRESENTE" if presente else "AUSENTE"
-        aviso = "" if presente else " Recuerda que las faltas afectan tu rendimiento."
+        aviso  = "" if presente else " Recuerda que las faltas afectan tu rendimiento."
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"tu asistencia del {fecha} en {curso} fue registrada como {estado}.{aviso}"
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_course_enrollment(
         self,
@@ -150,37 +164,28 @@ class SMSService:
         curso: str,
         docente: str,
     ) -> bool:
-        """SMS cuando el estudiante es inscrito en un curso."""
-        if not to_number:
-            return False
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"te inscribiste exitosamente al curso '{curso}' "
             f"con el docente {docente}."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_profile_updated(self, to_number: Optional[str], nombre: str, rol: str) -> bool:
-        """SMS cuando el perfil de un usuario es actualizado."""
-        if not to_number:
-            return False
         mensaje = (
             f"EduCampus: Hola {nombre}, tu perfil de {rol} "
             "fue actualizado exitosamente. Si no realizaste este cambio, "
             "contacta al administrador."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_account_deleted(self, to_number: Optional[str], nombre: str, rol: str) -> bool:
-        """SMS cuando la cuenta de un usuario es eliminada."""
-        if not to_number:
-            return False
         mensaje = (
             f"EduCampus: Hola {nombre}, tu cuenta de {rol} "
             "ha sido eliminada del sistema. "
             "Contacta al administrador si tienes dudas."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_grade_updated(
         self,
@@ -190,14 +195,11 @@ class SMSService:
         tipo_evaluacion: str,
         nota_nueva: float,
     ) -> bool:
-        """SMS cuando una calificación es actualizada."""
-        if not to_number:
-            return False
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"tu nota de {tipo_evaluacion} en {curso} fue actualizada a {nota_nueva}/5.0."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_attendance_corrected(
         self,
@@ -207,15 +209,12 @@ class SMSService:
         fecha: str,
         presente: bool,
     ) -> bool:
-        """SMS cuando una asistencia es corregida."""
-        if not to_number:
-            return False
         estado = "PRESENTE" if presente else "AUSENTE"
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"tu asistencia del {fecha} en {curso} fue corregida a {estado}."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_enrollment_cancelled(
         self,
@@ -223,15 +222,12 @@ class SMSService:
         nombre_estudiante: str,
         curso: str,
     ) -> bool:
-        """SMS cuando la inscripción de un estudiante es cancelada."""
-        if not to_number:
-            return False
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"tu inscripcion al curso '{curso}' ha sido cancelada. "
             "Contacta al administrador si tienes dudas."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_course_updated(
         self,
@@ -239,15 +235,12 @@ class SMSService:
         nombre: str,
         curso: str,
     ) -> bool:
-        """SMS cuando un curso es actualizado."""
-        if not to_number:
-            return False
         mensaje = (
             f"EduCampus: Hola {nombre}, "
             f"el curso '{curso}' ha sido actualizado. "
             "Ingresa al sistema para ver los cambios."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_course_deleted(
         self,
@@ -255,15 +248,12 @@ class SMSService:
         nombre: str,
         curso: str,
     ) -> bool:
-        """SMS cuando un curso es eliminado."""
-        if not to_number:
-            return False
         mensaje = (
             f"EduCampus: Hola {nombre}, "
             f"el curso '{curso}' ha sido eliminado del sistema. "
             "Contacta al administrador si tienes dudas."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
     def notify_material_deleted(
         self,
@@ -272,14 +262,11 @@ class SMSService:
         curso: str,
         nombre_archivo: str,
     ) -> bool:
-        """SMS cuando un material didáctico es eliminado."""
-        if not to_number:
-            return False
         mensaje = (
             f"EduCampus: Hola {nombre_estudiante}, "
             f"el archivo '{nombre_archivo}' del curso '{curso}' fue eliminado."
         )
-        return self.enviar_sms(to_number, mensaje)
+        return self._notificar(to_number, mensaje)
 
 
 # Instancia global del servicio
