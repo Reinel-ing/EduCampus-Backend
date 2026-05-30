@@ -22,7 +22,11 @@ class EmailService:
         self.from_email = os.getenv("EMAIL_FROM", self.gmail_user)
 
     def send_email(self, to_email: str, subject: str, html_content: str, text_content: Optional[str] = None):
-        """Envía un email usando Gmail SMTP con TLS."""
+        """Envía un email usando Gmail SMTP SSL (puerto 465) con fallback a TLS (587)."""
+        if not self.gmail_user or not self.gmail_password:
+            print("[Email] GMAIL_USER o GMAIL_APP_PASSWORD no configurados — email omitido.")
+            return None
+
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
@@ -33,14 +37,27 @@ class EmailService:
                 msg.attach(MIMEText(text_content, "plain", "utf-8"))
             msg.attach(MIMEText(html_content, "html", "utf-8"))
 
-            with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                server.ehlo()
-                server.starttls()
-                server.login(self.gmail_user, self.gmail_password)
-                server.sendmail(self.from_email, to_email, msg.as_string())
+            # Intento 1: SMTP_SSL puerto 465 (más confiable en servidores cloud)
+            try:
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+                    server.login(self.gmail_user, self.gmail_password)
+                    server.sendmail(self.from_email, to_email, msg.as_string())
+                print(f"[Email] Enviado (SSL/465) a {to_email} — {subject}")
+                return True
+            except Exception as e_ssl:
+                print(f"[Email] SSL/465 falló ({e_ssl}), intentando TLS/587...")
+                # Intento 2: STARTTLS puerto 587
+                with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+                    server.ehlo()
+                    server.starttls()
+                    server.login(self.gmail_user, self.gmail_password)
+                    server.sendmail(self.from_email, to_email, msg.as_string())
+                print(f"[Email] Enviado (TLS/587) a {to_email} — {subject}")
+                return True
 
-            print(f"[Email] Enviado a {to_email} — {subject}")
-            return True
+        except smtplib.SMTPAuthenticationError:
+            print("[Email] Error de autenticacion: verifica GMAIL_USER y GMAIL_APP_PASSWORD en las variables de entorno.")
+            return None
         except Exception as e:
             print(f"[Email] Error al enviar a {to_email}: {e}")
             return None

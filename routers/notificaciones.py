@@ -13,6 +13,8 @@ from typing import List
 from config.db import SessionLocal
 from models.notificacion import Notificacion
 from schemas.notificacion import NotificacionCreate, NotificacionResponse
+from service.email_service import email_service
+from service.sms_service import sms_service
 
 
 router = APIRouter(prefix="/notificaciones", tags=["Notificaciones"])
@@ -105,3 +107,63 @@ def crear_notificacion_manual(data: NotificacionCreate, db: Session = Depends(ge
     db.commit()
     db.refresh(notificacion)
     return notificacion
+
+
+@router.post("/test-servicios")
+def test_servicios_externos(email: str, telefono: str = None):
+    """
+    Prueba email y SMS en producción.
+    Llamar desde /docs → POST /notificaciones/test-servicios
+    Parámetros: email=correo@ejemplo.com  telefono=3001234567 (opcional)
+    """
+    resultado = {
+        "configuracion": {
+            "gmail_user":        email_service.gmail_user or "❌ NO CONFIGURADO",
+            "gmail_password_ok": bool(email_service.gmail_password),
+            "vonage_key_ok":     bool(sms_service.api_key),
+            "vonage_secret_ok":  bool(sms_service.api_secret),
+        },
+        "email": {"ok": False, "detalle": ""},
+        "sms":   {"ok": False, "detalle": ""},
+    }
+
+    # ── Test email ──────────────────────────────────────────────────────────
+    ok_email = email_service.send_email(
+        to_email=email,
+        subject="[EduCampus] Prueba de notificacion por email",
+        html_content="""
+        <html>
+          <body style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">
+            <div style="background:#2e86de;padding:18px;text-align:center;">
+              <h2 style="color:white;margin:0;">EduCampus — Prueba de Email</h2>
+            </div>
+            <div style="padding:24px;background:#f5f5f5;">
+              <p>Este es un correo de prueba del sistema EduCampus.</p>
+              <p>Si recibes este mensaje, el servicio de email funciona
+                 correctamente en produccion.</p>
+            </div>
+          </body>
+        </html>
+        """
+    )
+    resultado["email"]["ok"]     = bool(ok_email)
+    resultado["email"]["detalle"] = (
+        "Enviado correctamente" if ok_email
+        else "Fallo — revisa los logs de Render para ver el error exacto"
+    )
+
+    # ── Test SMS ────────────────────────────────────────────────────────────
+    if telefono:
+        ok_sms = sms_service.enviar_sms(
+            to_number=telefono,
+            mensaje="EduCampus: Prueba de SMS. Si recibes esto, el servicio SMS funciona correctamente."
+        )
+        resultado["sms"]["ok"]     = bool(ok_sms)
+        resultado["sms"]["detalle"] = (
+            "Enviado correctamente" if ok_sms
+            else "Fallo — revisa los logs de Render para ver el error exacto"
+        )
+    else:
+        resultado["sms"]["detalle"] = "No se envio — proporciona el parametro 'telefono' para probar SMS"
+
+    return resultado
